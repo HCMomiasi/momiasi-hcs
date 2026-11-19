@@ -1,0 +1,6 @@
+.test-accounts.local
+*.local
+.DS_Store
+app/index.html
+app/artifact/
+__pycache__/
