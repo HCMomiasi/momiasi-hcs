@@ -4,8 +4,8 @@ Tanggal uji: 19 November 2026 · lingkungan: Supabase `momiasi-hcs` (data contoh
 ## Ringkasan
 | Jenis uji | Hasil |
 |---|---|
-| Positif (alur bisnis berjalan sesuai urutan & peran) | 39 / 39 lulus |
-| Negatif (pelanggaran alur, hak akses, manipulasi data) | 54 / 54 ditolak dengan alasan yang benar |
+| Positif (alur bisnis berjalan sesuai urutan & peran) | 43 / 43 lulus |
+| Negatif (pelanggaran alur, hak akses, manipulasi data) | 50 / 50 ditolak dengan alasan yang benar |
 | Smoke UI: 7 peran × semua menu + halaman detail (119 halaman) | 0 halaman error |
 | Alur UI ujung-ke-ujung (form → simpan → approval peran lain → notifikasi HCGA) | lulus |
 | Stress: 40 orang berebut slot ruang yang sama bersamaan | 1 berhasil, 39 ditolak "bentrok" |
