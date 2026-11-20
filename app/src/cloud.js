@@ -113,21 +113,65 @@ document.addEventListener('change', async e => {
     for (const f of files) {
       const path = `${S.meId}/${Date.now()}-${f.name.replace(/[^\w.\-]+/g, '_')}`;
       const up = await sb.storage.from('files').upload(path, f); if (up.error) throw up.error;
-      const r = await sb.from('uploads').insert({ name: f.name, path }); if (r.error) throw r.error;
+      const r = await sb.from('uploads').insert({ name: f.name, path, viewers: viewersFor() }); if (r.error) throw r.error;
     }
     toast(files.length > 1 ? `${files.length} file terunggah` : 'File terunggah');
   } catch (err) { toast('Gagal mengunggah: ' + err.message); inp.value = ''; }
   finally { if (btn) btn.disabled = false; }
 }, true);
+/* siapa saja yang boleh membuka berkas ini selain pengunggah & HC: pemilik pengajuan yang sedang dibuka + atasannya */
+function viewersFor() {
+  const [p0, p1] = parse().parts, src = { dinas: S.trips, onb: S.onb, training: S.trainings, aset: S.aset, mobil: S.cars }[p0];
+  const rec = src && src.find(x => x.id === p1), owner = rec?.userId;
+  const ids = [owner, owner && user(owner).atasan, rec?.caPic, me().atasan, ...(rec?.peserta || [])];
+  return [...new Set(ids.filter(x => x && x !== S.meId && /^[0-9a-f-]{36}$/.test(x)))];
+}
 document.addEventListener('click', async e => {
   const el = e.target.closest('.file'); if (!el || !S.loggedIn || e.target.closest('[data-act]')) return;
-  const name = el.textContent.trim();
-  const { data } = await sb.from('uploads').select('path').eq('name', name).order('created_at', { ascending: false }).limit(1);
-  if (!data?.length) return toast('File asli tidak tersedia (data contoh / tidak berhak melihat)');
-  const s = await sb.storage.from('files').createSignedUrl(data[0].path, 300);
-  if (s.error) return toast(s.error.message);
-  window.open(s.data.signedUrl, '_blank', 'noopener');
+  const name = el.dataset.f || el.textContent.trim(), w = window.open('', '_blank');
+  let q = sb.from('uploads').select('path').eq('name', name);
+  if (el.dataset.o) q = q.eq('owner', el.dataset.o);
+  const { data } = await q.order('created_at', { ascending: false }).limit(1);
+  const s = data?.length ? await sb.storage.from('files').createSignedUrl(data[0].path, 300) : null;
+  if (!s || s.error) { w?.close(); return toast(s ? s.error.message : 'File tidak ditemukan atau Anda tidak berhak membukanya'); }
+  if (w) { w.opener = null; w.location = s.data.signedUrl; } else location.href = s.data.signedUrl;
 });
+
+/* ---------- realtime: perubahan dari pengguna lain langsung tampil tanpa refresh ---------- */
+let RT = null, RQ = null;
+function queueRender() {
+  clearTimeout(RQ);
+  RQ = setTimeout(() => {
+    if ($('#modal').classList.contains('open') || document.querySelector('#view form') || document.activeElement?.closest('form')) { RQ = null; return setTimeout(queueRender, 1500); }
+    rerenderQuiet();
+  }, 250);
+}
+function applyChange(k, p) {
+  if (!S.loggedIn) return;
+  const snap = SNAP[k] || (SNAP[k] = {});
+  if (p.eventType === 'DELETE') { const id = p.old?.id; if (!S[k].some(o => o.id === id)) return; S[k] = S[k].filter(o => o.id !== id); delete snap[id]; return queueRender(); }
+  const d = p.new?.data; if (!d || !d.id) return;
+  if (k === 'notifs' && d.userId !== S.meId) return;
+  if (k === 'users' && d.akun === 'menunggu' && !isHCGA()) return;
+  if (k === 'users' && d.id === S.meId) return reloadSoon();   // peran / atasan saya berubah: muat ulang penuh
+  const o = S[k].find(x => x.id === d.id);
+  if (o && snap[d.id] !== undefined && JSON.stringify(o) !== snap[d.id]) return;   // ada perubahan lokal yang belum tersimpan
+  const before = o ? JSON.stringify(o) : null;
+  if (o) { Object.keys(o).forEach(key => { if (!(key in d)) delete o[key]; }); Object.assign(o, d); } else S[k].push(d);
+  const after = JSON.stringify(o || d); snap[d.id] = after;
+  if (before !== after) queueRender();
+}
+let RL = null;
+function reloadSoon() { clearTimeout(RL); RL = setTimeout(async () => { try { await chain; await loadAll(); queueRender(); } catch (_) {} }, 400); }
+function startRealtime() {
+  stopRealtime();
+  RT = sb.channel('hcs-' + S.meId);
+  Object.entries(TBL).forEach(([k, t]) => RT.on('postgres_changes', { event: '*', schema: 'public', table: t }, p => applyChange(k, p)));
+  RT.on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, reloadSoon);
+  let first = true;
+  RT.subscribe(st => { if (st === 'SUBSCRIBED') { if (!first) reloadSoon(); first = false; } });   // sambung ulang: ambil yang terlewat
+}
+function stopRealtime() { if (RT) { sb.removeChannel(RT); RT = null; } }
 
 /* ---------- link untuk kandidat & karyawan ---------- */
 const tokGen = () => Array.from(crypto.getRandomValues(new Uint8Array(18)), b => 'abcdefghijkmnpqrstuvwxyz23456789'[b % 32]).join('');
@@ -184,6 +228,7 @@ async function enter(first) {
   if (!u) { await sb.auth.signOut(); SESSION = null; return authErr('Akun belum terdaftar di Momiasi HCS. Hubungi HCGA.'); }
   if (u.akun === 'nonaktif') { await sb.auth.signOut(); SESSION = null; S = blank(); return authErr('Akun ini sudah dinonaktifkan.'); }
   if (u.akun === 'undangan') return go('#/aktivasi');
+  startRealtime();
   go(location.hash && !/^#\/(login|aktivasi)?$/.test(location.hash) ? location.hash : '#/');
   if (first) toast(`Selamat datang, ${u.nama.split(' ')[0]}`);
 }
@@ -237,7 +282,7 @@ regReject = async u => { try { await fn('reject', { id: u.id }); await loadAll()
 const FORMS0 = { ...FORMS }; Object.assign(FORMS, FORMS_CLOUD);
 const ACT0 = { ...ACT };
 Object.assign(ACT, {
-  logout: async () => { await sb.auth.signOut(); SESSION = null; S = blank(); SNAP = {}; go('#/login'); },
+  logout: async () => { stopRealtime(); await sb.auth.signOut(); SESSION = null; S = blank(); SNAP = {}; go('#/login'); },
   forgot: () => modal('Lupa password', '<p style="margin:0">Masukkan email kantor. Link untuk membuat password baru akan dikirim ke email tersebut. Jika tidak masuk dalam beberapa menit, minta link reset ke HCGA.</p><div class="f"><label>Email</label><input type="email" name="email" placeholder="nama@momiasi.id" autofocus></div>', 'Kirim link', fd => {
     const email = (fd.get('email') || '').trim().toLowerCase(); if (!email) return false;
     sb.auth.resetPasswordForEmail(email, { redirectTo: BASE + '?aktivasi=1' }).then(({ error }) => toast(error ? (/rate/i.test(error.message) ? 'Terlalu banyak permintaan. Minta link reset ke HCGA.' : error.message) : 'Jika email terdaftar, link reset sudah dikirim'));
@@ -280,5 +325,6 @@ sb.auth.onAuthStateChange((ev, s) => { SESSION = s; if (ev === 'SIGNED_OUT' && S
 setInterval(async () => {
   if (!S.loggedIn || BUSY || QUEUED || document.hidden || $('#modal').classList.contains('open') || document.activeElement?.closest('form')) return;
   try { await chain; await loadAll(); rerenderQuiet(); } catch (_) {}
-}, 60000);
+}, 300000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden && S.loggedIn) reloadSoon(); });
 boot();

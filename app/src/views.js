@@ -63,6 +63,8 @@ const DASH = ['dash-ga', 'dash-ta', 'dash-lnd'];
 const pill = s => { const [l, c] = ST[s] || [s, 'gray']; return `<span class="pill ${c}">${l}</span>`; };
 const card = (title, body, aside, sub) => `<section class="card"><div class="card-h"><h2>${title}${sub ? ` <span class="sub">${sub}</span>` : ''}</h2>${aside || ''}</div>${body}</section>`;
 const empty = t => `<div class="empty">${t}</div>`;
+/* nama berkas yang bisa diklik (dibuka dari Storage di versi online); o = pemilik berkas */
+const fileChip = (name, o) => name ? `<span class="file" data-f="${esc(name)}"${o ? ` data-o="${o}"` : ''}>${ic('file')}${esc(name)}</span>` : '';
 const row = ({ href, tag, title, sub, right }) => `<div class="row" data-href="${href}" role="link" tabindex="0">${tag ? `<span class="tag">${tag}</span>` : ''}<span class="rm"><span class="rt">${title}</span><span class="rs">${sub}</span></span><span class="rr">${right || ''}</span></div>`;
 const kv = (k, v, cls) => `<div class="kv ${cls || ''}"><span>${k}</span><span class="num">${v}</span></div>`;
 const opts = (arr, sel) => arr.map(o => { const [v, l] = Array.isArray(o) ? o : [o, o]; return `<option value="${esc(v)}" ${v === sel ? 'selected' : ''}>${esc(l)}</option>`; }).join('');

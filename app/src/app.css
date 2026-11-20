@@ -734,3 +734,5 @@ dl.d dd{margin:0;min-width:0;overflow-wrap:anywhere}
   .npanel{right:16px}
   h1{font-size:20px}
 }
+.file[data-f]{cursor:pointer}
+.file[data-f]:hover{border-color:var(--brand);color:var(--brand)}
