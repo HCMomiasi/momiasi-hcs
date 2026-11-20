@@ -736,3 +736,4 @@ dl.d dd{margin:0;min-width:0;overflow-wrap:anywhere}
 }
 .file[data-f]{cursor:pointer}
 .file[data-f]:hover{border-color:var(--brand);color:var(--brand)}
+.file.drive{border-style:dashed}

@@ -107,6 +107,7 @@ document.addEventListener('change', async e => {
   if (inp.type !== 'file' || !S.loggedIn || !inp.files.length) return;
   const files = [...inp.files].filter(f => !/\.csv$/i.test(f.name));
   if (!files.length) return;
+  delete inp.dataset.driveGagal;
   if (files.some(f => f.size > 10 * 1024 * 1024)) { toast('Maksimal 10 MB per file'); inp.value = ''; return; }
   const form = inp.form, btn = form && form.querySelector('button:not([type=button])'); if (btn) btn.disabled = true;
   try {
@@ -114,11 +115,21 @@ document.addEventListener('change', async e => {
       const path = `${S.meId}/${Date.now()}-${f.name.replace(/[^\w.\-]+/g, '_')}`;
       const up = await sb.storage.from('files').upload(path, f); if (up.error) throw up.error;
       const r = await sb.from('uploads').insert({ name: f.name, path, viewers: viewersFor() }); if (r.error) throw r.error;
+      if (inp.dataset.doc) {   // dokumen karyawan → langsung ke Google Drive HC, tidak disimpan di HCS
+        toast('Menyimpan ke Google Drive HC…');
+        const { data, error } = await sb.functions.invoke('ke-drive', { body: { path, doc: inp.dataset.doc, konteks: inp.dataset.konteks || '' } });
+        if (error) {   // Drive sedang bermasalah: berkas tetap aman di HCS (hanya pengunggah, HC & atasan yang bisa membuka)
+          let m = error.message; try { m = (await error.context.json()).error || m; } catch (_) {}
+          inp.dataset.driveGagal = 1; toast('Belum bisa ke Google Drive (' + m + '). File disimpan sementara di HCS.');
+        } else UPL.set(fkey(f), { file: data.name, drive: data.url });
+      }
     }
-    toast(files.length > 1 ? `${files.length} file terunggah` : 'File terunggah');
-  } catch (err) { toast('Gagal mengunggah: ' + err.message); inp.value = ''; }
+    if (!inp.dataset.driveGagal) toast(inp.dataset.doc ? 'Tersimpan di Google Drive HC' : files.length > 1 ? `${files.length} file terunggah` : 'File terunggah');
+  } catch (err) { toast('Gagal mengunggah: ' + err.message + '. Coba pilih file lagi.'); inp.value = ''; }
   finally { if (btn) btn.disabled = false; }
 }, true);
+const UPL = new Map(), fkey = f => `${f.name}|${f.size}|${f.lastModified}`;
+fileRef = f => UPL.get(fkey(f)) || { file: f.name };
 /* siapa saja yang boleh membuka berkas ini selain pengunggah & HC: pemilik pengajuan yang sedang dibuka + atasannya */
 function viewersFor() {
   const [p0, p1] = parse().parts, src = { dinas: S.trips, onb: S.onb, training: S.trainings, aset: S.aset, mobil: S.cars }[p0];
@@ -128,6 +139,7 @@ function viewersFor() {
 }
 document.addEventListener('click', async e => {
   const el = e.target.closest('.file'); if (!el || !S.loggedIn || e.target.closest('[data-act]')) return;
+  if (el.dataset.drive) { if (isHCGA()) window.open(el.dataset.drive, '_blank', 'noopener'); else toast('Dokumen ini tersimpan di Google Drive HC dan hanya bisa dibuka tim HC'); return; }
   const name = el.dataset.f || el.textContent.trim(), w = window.open('', '_blank');
   let q = sb.from('uploads').select('path').eq('name', name);
   if (el.dataset.o) q = q.eq('owner', el.dataset.o);

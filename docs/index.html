@@ -748,6 +748,7 @@ dl.d dd{margin:0;min-width:0;overflow-wrap:anywhere}
 }
 .file[data-f]{cursor:pointer}
 .file[data-f]:hover{border-color:var(--brand);color:var(--brand)}
+.file.drive{border-style:dashed}
 
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
@@ -1254,7 +1255,10 @@ const pill = s => { const [l, c] = ST[s] || [s, 'gray']; return `<span class="pi
 const card = (title, body, aside, sub) => `<section class="card"><div class="card-h"><h2>${title}${sub ? ` <span class="sub">${sub}</span>` : ''}</h2>${aside || ''}</div>${body}</section>`;
 const empty = t => `<div class="empty">${t}</div>`;
 /* nama berkas yang bisa diklik (dibuka dari Storage di versi online); o = pemilik berkas */
-const fileChip = (name, o) => name ? `<span class="file" data-f="${esc(name)}"${o ? ` data-o="${o}"` : ''}>${ic('file')}${esc(name)}</span>` : '';
+const fileChip = (name, o, drive) => name ? `<span class="file${drive ? ' drive' : ''}" data-f="${esc(name)}"${o ? ` data-o="${o}"` : ''}${drive ? ` data-drive="${esc(drive)}" title="Tersimpan di Google Drive HC"` : ''}>${ic('file')}${esc(name)}</span>` : '';
+/* referensi berkas yang disimpan di data; versi online menambahkan tautan Google Drive */
+let fileRef = f => ({ file: f.name });
+const fileList = (x, o) => x && x.files && x.files.length ? x.files.map(f => fileChip(f.file, o, f.drive)).join(' ') : fileChip(x && x.file, o);
 const row = ({ href, tag, title, sub, right }) => `<div class="row" data-href="${href}" role="link" tabindex="0">${tag ? `<span class="tag">${tag}</span>` : ''}<span class="rm"><span class="rt">${title}</span><span class="rs">${sub}</span></span><span class="rr">${right || ''}</span></div>`;
 const kv = (k, v, cls) => `<div class="kv ${cls || ''}"><span>${k}</span><span class="num">${v}</span></div>`;
 const opts = (arr, sel) => arr.map(o => { const [v, l] = Array.isArray(o) ? o : [o, o]; return `<option value="${esc(v)}" ${v === sel ? 'selected' : ''}>${esc(l)}</option>`; }).join('');
@@ -2655,7 +2659,7 @@ function vLndTugas() {
   }
   if (x.onbVerif.length) {
     any = true;
-    h += card('Verifikasi tugas onboarding', `<div class="list">${x.onbVerif.map(({ o, k }) => `<div class="row nw" style="cursor:default"><span class="rm"><span class="rt" style="white-space:normal">${esc(k.judul)}</span><span class="rs">${esc(user(o.userId).nama)}${k.note ? ' · "' + esc(k.note) + '"' : ''}</span>${fileChip(k.file, o.userId)}</span><span class="rr"><button class="btn sm" data-act="ot-revisi" data-o="${o.id}" data-k="${k.id}">Revisi</button><button class="btn sm primary" data-act="ot-acc" data-o="${o.id}" data-k="${k.id}">Acc</button></span></div>`).join('')}</div>`, '', 'Anda sebagai mentor / HC');
+    h += card('Verifikasi tugas onboarding', `<div class="list">${x.onbVerif.map(({ o, k }) => `<div class="row nw" style="cursor:default"><span class="rm"><span class="rt" style="white-space:normal">${esc(k.judul)}</span><span class="rs">${esc(user(o.userId).nama)}${k.note ? ' · "' + esc(k.note) + '"' : ''}</span><span class="files" style="margin-top:4px">${fileList(k, o.userId)}</span></span><span class="rr"><button class="btn sm" data-act="ot-revisi" data-o="${o.id}" data-k="${k.id}">Revisi</button><button class="btn sm primary" data-act="ot-acc" data-o="${o.id}" data-k="${k.id}">Acc</button></span></div>`).join('')}</div>`, '', 'Anda sebagai mentor / HC');
   }
   if (!any) h += card('Tugas', empty('Tidak ada tugas LnD saat ini.'));
   return h;
@@ -2671,7 +2675,7 @@ function onbTaskList(o, mode) {
     if (isOwner && ['proses', 'revisi'].includes(k.status)) act = `<button class="btn sm primary" data-act="ot-submit" data-o="${o.id}" data-k="${k.id}">Ajukan selesai</button>`;
     const canVerif = k.status === 'menunggu' && ((k.verif === 'hc' && isHCGA()) || (k.verif === 'atasan' && (user(o.userId).atasan === me().id || isHCGA())));
     if (canVerif) act = `<button class="btn sm" data-act="ot-revisi" data-o="${o.id}" data-k="${k.id}">Revisi</button><button class="btn sm primary" data-act="ot-acc" data-o="${o.id}" data-k="${k.id}">Acc</button>`;
-    return `<tr><td><span class="ni">${esc(k.judul)}</span>${k.note ? `<span class="s">${esc(k.note)}</span>` : ''}${k.file ? `<div style="margin-top:4px">${fileChip(k.file, o.userId)}</div>` : ''}</td><td class="hide-sm num">${fds(addDays(o.join, k.hari))}</td><td class="hide-sm">${VERIF[k.verif]}</td><td>${otPill(k.status)}</td><td class="r"><div class="btns" style="justify-content:flex-end;flex-wrap:nowrap">${act}</div></td></tr>`;
+    return `<tr><td><span class="ni">${esc(k.judul)}</span>${k.note ? `<span class="s">${esc(k.note)}</span>` : ''}${k.file || k.files?.length ? `<div class="files" style="margin-top:4px">${fileList(k, o.userId)}</div>` : ''}</td><td class="hide-sm num">${fds(addDays(o.join, k.hari))}</td><td class="hide-sm">${VERIF[k.verif]}</td><td>${otPill(k.status)}</td><td class="r"><div class="btns" style="justify-content:flex-end;flex-wrap:nowrap">${act}</div></td></tr>`;
   }).join('')}</tbody></table></div>`;
 }
 function trActions(t, uid) {
@@ -2795,7 +2799,7 @@ function vTrainingDetail(id) {
   else if (t.userId === m.id && ['menunggu_atasan', 'menunggu_hcga'].includes(t.status)) act = `<div class="act"><div><b>${t.status === 'menunggu_atasan' ? 'Menunggu atasan' : 'Menunggu HC'}</b><p>Anda akan mendapat notifikasi saat ada keputusan.</p></div><button class="btn danger" data-act="tr-cancel" data-id="${t.id}">Batalkan</button></div>`;
   const piagamHC = isHCGA() ? t.peserta.filter(u => t.prog[u]?.piagam?.status === 'diajukan') : [];
   const progRows = t.peserta.map(u => { const p = t.prog[u] || {}, rs = p.reaction ? avg(p.reaction.s) : null;
-    return `<tr><td><b>${esc(user(u).nama)}</b>${u === t.userId ? ' <span class="tag">PIC</span>' : ''}<span class="s">${esc(user(u).dept)}</span></td><td>${['disetujui', 'terlaksana', 'selesai'].includes(t.status) ? stepLine(trSteps(t, u)) : '<span class="faint">–</span>'}</td><td class="r num hide-sm">${rs != null ? f1(rs) : '–'}</td><td class="hide-sm">${[p.commit && fileChip(p.commit.file, u), p.result && fileChip(p.result.file, u)].filter(Boolean).join(' ') || '<span class="faint">–</span>'}</td><td class="r">${piagamHC.includes(u) ? `<div class="btns" style="justify-content:flex-end;flex-wrap:nowrap"><button class="btn sm" data-act="pg-reject" data-id="${t.id}" data-u="${u}">Tolak</button><button class="btn sm primary" data-act="pg-approve" data-id="${t.id}" data-u="${u}">Acc piagam</button></div>` : p.piagam?.status === 'disetujui' ? `<a class="btn sm" href="#/piagam/${t.id}/${u}">Piagam</a>` : ''}</td></tr>`; }).join('');
+    return `<tr><td><b>${esc(user(u).nama)}</b>${u === t.userId ? ' <span class="tag">PIC</span>' : ''}<span class="s">${esc(user(u).dept)}</span></td><td>${['disetujui', 'terlaksana', 'selesai'].includes(t.status) ? stepLine(trSteps(t, u)) : '<span class="faint">–</span>'}</td><td class="r num hide-sm">${rs != null ? f1(rs) : '–'}</td><td class="hide-sm">${[p.commit && fileChip(p.commit.file, u, p.commit.drive), p.result && fileChip(p.result.file, u, p.result.drive)].filter(Boolean).join(' ') || '<span class="faint">–</span>'}</td><td class="r">${piagamHC.includes(u) ? `<div class="btns" style="justify-content:flex-end;flex-wrap:nowrap"><button class="btn sm" data-act="pg-reject" data-id="${t.id}" data-u="${u}">Tolak</button><button class="btn sm primary" data-act="pg-approve" data-id="${t.id}" data-u="${u}">Acc piagam</button></div>` : p.piagam?.status === 'disetujui' ? `<a class="btn sm" href="#/piagam/${t.id}/${u}">Piagam</a>` : ''}</td></tr>`; }).join('');
   return `<a class="back" href="#/${isHCGA() ? 'lnd-training' : 'training'}">${ic('left')} ${isHCGA() ? 'Progres training' : 'Pengajuan training'}</a>
   <div class="page-head"><div><div class="eyebrow num">${t.no}</div><h1>${esc(t.judul)}</h1><p class="muted">${fd(t.tanggal)} · ${t.mode} · ${t.penyelenggara} · ${esc(t.vendor)}</p></div>${trPill(t)}</div>
   ${act}
@@ -3031,9 +3035,12 @@ function dlTemplate(id) {
   document.body.appendChild(a); a.click(); a.remove();
   toast('Template diunduh');
 }
-function uploadModal(title, accept, cb) {
-  modal(title, `<div class="f"><label>File</label><input type="file" name="file" accept="${accept}" autofocus></div><p class="muted" style="margin:0;font-size:12.5px">Format .docx atau .pdf</p>`, 'Unggah', fd => { const f = fd.get('file'); if (!f || !f.name) { toast('Pilih file dulu'); return false; } cb(f.name); });
+function uploadModal(title, accept, cb, doc, konteks) {
+  modal(title, `<div class="f"><label>File</label><input type="file" name="file" accept="${accept}" autofocus${doc ? ` data-doc="${esc(doc)}" data-konteks="${esc(konteks || '')}"` : ''}></div><p class="muted" style="margin:0;font-size:12.5px">Format .docx atau .pdf${doc ? ' · otomatis tersimpan ke Google Drive HC' : ''}</p>`, 'Unggah', fd => { const f = fd.get('file'); if (!f || !f.name) { toast('Pilih file dulu'); return false; } cb(f.name, f); });
 }
+/* dokumen yang diminta per tugas onboarding (dipetakan ke folder DATA KARYAWAN di Google Drive) */
+const DOC_DATA = ['KTP', 'Kartu Keluarga', 'NPWP', 'Buku Tabungan', 'Ijazah'];
+const taskDocs = k => /ktp|npwp|rekening|data diri|dokumen karyawan/i.test(k.judul) ? DOC_DATA : [/kontrak|nda/i.test(k.judul) ? 'Kontrak & NDA' : 'Dokumen Lainnya'];
 
 const LND_ACT = {
   'tpl-dl': d => dlTemplate(d.id),
@@ -3051,13 +3058,16 @@ const LND_ACT = {
   'tr-reject': d => { const t = TR(d.id); modal('Tolak pengajuan training?', noteField('Alasan', true), 'Tolak', fd => { if (!fd.get('note').trim()) { toast('Alasan wajib diisi'); return false; } t.rejectedAt = t.status === 'menunggu_atasan' ? 'atasan' : 'hc'; t.status = 'ditolak'; addLog(t, 'Menolak', fd.get('note')); notify(t.userId, `Training "${t.judul}" ditolak: ${fd.get('note')}`, `#/training/${t.id}`); rerender(); toast('Ditolak'); }, true); },
   'tr-cancel': d => { const t = TR(d.id); modal('Batalkan pengajuan training?', '<p style="margin:0">Pengajuan ditarik.</p>', 'Batalkan', () => { t.status = 'dibatalkan'; addLog(t, 'Membatalkan'); rerender(); }, true); },
   'tr-done': d => { const t = TR(d.id); t.terlaksanaAt = Date.now(); addLog(t, 'Menandai training terlaksana'); t.peserta.forEach(u => notify(u, `Training "${t.judul}" selesai. Isi form reaction${t.tes ? ' & posttest' : ''}${u === t.userId ? ' dan unggah training result' : ''}.`, '#/lnd-tugas')); syncTraining(t); rerender(); toast('Tugas sesudah training dibuka'); },
-  'tr-commit': d => uploadModal('Unggah commitment letter', '.docx,.doc,.pdf', name => { const t = TR(d.id); (t.prog[me().id] = t.prog[me().id] || {}).commit = { file: name, at: Date.now() }; addLog(t, 'Mengunggah commitment letter'); syncTraining(t); rerender(); toast('Commitment letter terkirim'); }),
-  'tr-result': d => uploadModal('Unggah training result', '.docx,.doc,.pdf', name => { const t = TR(d.id); (t.prog[me().id] = t.prog[me().id] || {}).result = { file: name, at: Date.now() }; addLog(t, 'Mengunggah training result'); notifyHCGA(`Training result "${t.judul}" sudah diunggah`, `#/training/${t.id}`); syncTraining(t); rerender(); toast('Training result terkirim'); }),
+  'tr-commit': d => uploadModal('Unggah commitment letter', '.docx,.doc,.pdf', (name, f) => { const t = TR(d.id); (t.prog[me().id] = t.prog[me().id] || {}).commit = { ...fileRef(f), at: Date.now() }; addLog(t, 'Mengunggah commitment letter'); syncTraining(t); rerender(); toast('Commitment letter terkirim'); }, 'Commitment Letter', TR(d.id).judul),
+  'tr-result': d => uploadModal('Unggah training result', '.docx,.doc,.pdf', (name, f) => { const t = TR(d.id); (t.prog[me().id] = t.prog[me().id] || {}).result = { ...fileRef(f), at: Date.now() }; addLog(t, 'Mengunggah training result'); notifyHCGA(`Training result "${t.judul}" sudah diunggah`, `#/training/${t.id}`); syncTraining(t); rerender(); toast('Training result terkirim'); }, 'Training Result', TR(d.id).judul),
   'tr-piagam': d => { const t = TR(d.id); modal('Ajukan piagam?', `<p style="margin:0">Piagam untuk training internal <b>${esc(t.judul)}</b> akan dibuat otomatis setelah disetujui HC.</p>`, 'Ajukan', () => { (t.prog[me().id] = t.prog[me().id] || {}).piagam = { status: 'diajukan', at: Date.now() }; addLog(t, 'Mengajukan piagam'); notifyHCGA(`${me().nama} mengajukan piagam "${t.judul}"`, `#/training/${t.id}`); rerender(); toast('Pengajuan piagam terkirim ke HC'); }); },
   'pg-approve': d => { const t = TR(d.id); S.seq.PGM = (S.seq.PGM || 5) + 1; t.prog[d.u].piagam = { status: 'disetujui', no: `PGM/${TODAY.slice(0, 4)}/${TODAY.slice(5, 7)}/${String(S.seq.PGM).padStart(3, '0')}`, at: Date.now() }; addLog(t, `Menyetujui piagam ${user(d.u).nama}`); notify(d.u, `Piagam "${t.judul}" sudah terbit`, `#/piagam/${t.id}/${d.u}`); rerender(); toast('Piagam terbit'); },
   'pg-reject': d => { const t = TR(d.id); modal('Tolak pengajuan piagam?', noteField('Alasan', true), 'Tolak', fd => { if (!fd.get('note').trim()) return false; t.prog[d.u].piagam = { status: 'ditolak', at: Date.now() }; addLog(t, `Menolak piagam ${user(d.u).nama}`, fd.get('note')); notify(d.u, `Pengajuan piagam ditolak: ${fd.get('note')}`, `#/training/${t.id}`); rerender(); }, true); },
   'ot-start': d => { const k = OB(d.o).tasks.find(x => x.id === d.k); k.status = 'proses'; rerender(); toast('Tugas mulai dikerjakan'); },
-  'ot-submit': d => { const o = OB(d.o), k = o.tasks.find(x => x.id === d.k); modal('Ajukan tugas selesai', `<p style="margin:0">${esc(k.judul)}</p><div class="f"><label>Catatan</label><textarea name="note" placeholder="Opsional"></textarea></div><div class="f"><label>Lampiran (opsional)</label><input type="file" name="file"></div>`, 'Ajukan', fd => { k.note = fd.get('note').trim(); const f = fd.get('file'); if (f && f.name) k.file = f.name; k.status = 'menunggu'; if (k.verif === 'atasan') notify(user(o.userId).atasan, `${user(o.userId).nama} menyelesaikan tugas onboarding: ${k.judul}`, '#/lnd-tugas'); else notifyHCGA(`${user(o.userId).nama} menyelesaikan tugas onboarding: ${k.judul}`, `#/onb/${o.id}`); rerender(); toast('Menunggu acc ' + (k.verif === 'atasan' ? 'atasan' : 'HC')); }); },
+  'ot-submit': d => { const o = OB(d.o), k = o.tasks.find(x => x.id === d.k); modal('Ajukan tugas selesai', `<p style="margin:0">${esc(k.judul)}</p><div class="f"><label>Catatan</label><textarea name="note" placeholder="Opsional"></textarea></div>${taskDocs(k).map((dc, i, a) => `<div class="f"><label>${a.length > 1 ? esc(dc) : 'Lampiran'} (opsional)</label><input type="file" name="doc${i}" data-doc="${esc(dc)}" data-konteks="Onboarding">${(k.files || []).some(x => x.doc === dc) ? '<span class="hint">Sudah diunggah sebelumnya · pilih file lagi untuk mengganti</span>' : ''}</div>`).join('')}<p class="muted" style="margin:0;font-size:12.5px">Dokumen otomatis tersimpan ke Google Drive HC (folder DATA KARYAWAN).</p>`, 'Ajukan', fd => { k.note = fd.get('note').trim();
+      const baru = taskDocs(k).map((dc, i) => { const f = fd.get('doc' + i); return f && f.name ? { doc: dc, ...fileRef(f) } : null; }).filter(Boolean);
+      if (baru.length) { k.files = [...(k.files || []).filter(x => !baru.some(y => y.doc === x.doc)), ...baru]; k.file = k.files.map(x => x.file).join(', '); }
+      k.status = 'menunggu'; if (k.verif === 'atasan') notify(user(o.userId).atasan, `${user(o.userId).nama} menyelesaikan tugas onboarding: ${k.judul}`, '#/lnd-tugas'); else notifyHCGA(`${user(o.userId).nama} menyelesaikan tugas onboarding: ${k.judul}`, `#/onb/${o.id}`); rerender(); toast('Menunggu acc ' + (k.verif === 'atasan' ? 'atasan' : 'HC')); }); },
   'ot-acc': d => { const o = OB(d.o), k = o.tasks.find(x => x.id === d.k); k.status = 'selesai'; notify(o.userId, `Tugas "${k.judul}" sudah di-acc`, '#/lnd-tugas'); syncOnb(o); rerender(); toast('Tugas di-acc'); },
   'ot-revisi': d => { const o = OB(d.o), k = o.tasks.find(x => x.id === d.k); modal('Minta revisi', noteField('Yang perlu diperbaiki', true), 'Kirim', fd => { if (!fd.get('note').trim()) return false; k.status = 'revisi'; k.note = fd.get('note').trim(); notify(o.userId, `Tugas "${k.judul}" perlu revisi: ${k.note}`, '#/lnd-tugas'); rerender(); }); },
   'onb-paparan': d => { const o = OB(d.id); o.pemaparanAt = Date.now(); notify(o.userId, 'Sesi pemaparan onboarding selesai. Silakan kerjakan posttest (tahap 2).', '#/lnd-tugas'); rerender(); toast('Posttest dibuka untuk karyawan'); },
@@ -4644,6 +4654,7 @@ document.addEventListener('change', async e => {
   if (inp.type !== 'file' || !S.loggedIn || !inp.files.length) return;
   const files = [...inp.files].filter(f => !/\.csv$/i.test(f.name));
   if (!files.length) return;
+  delete inp.dataset.driveGagal;
   if (files.some(f => f.size > 10 * 1024 * 1024)) { toast('Maksimal 10 MB per file'); inp.value = ''; return; }
   const form = inp.form, btn = form && form.querySelector('button:not([type=button])'); if (btn) btn.disabled = true;
   try {
@@ -4651,11 +4662,21 @@ document.addEventListener('change', async e => {
       const path = `${S.meId}/${Date.now()}-${f.name.replace(/[^\w.\-]+/g, '_')}`;
       const up = await sb.storage.from('files').upload(path, f); if (up.error) throw up.error;
       const r = await sb.from('uploads').insert({ name: f.name, path, viewers: viewersFor() }); if (r.error) throw r.error;
+      if (inp.dataset.doc) {   // dokumen karyawan → langsung ke Google Drive HC, tidak disimpan di HCS
+        toast('Menyimpan ke Google Drive HC…');
+        const { data, error } = await sb.functions.invoke('ke-drive', { body: { path, doc: inp.dataset.doc, konteks: inp.dataset.konteks || '' } });
+        if (error) {   // Drive sedang bermasalah: berkas tetap aman di HCS (hanya pengunggah, HC & atasan yang bisa membuka)
+          let m = error.message; try { m = (await error.context.json()).error || m; } catch (_) {}
+          inp.dataset.driveGagal = 1; toast('Belum bisa ke Google Drive (' + m + '). File disimpan sementara di HCS.');
+        } else UPL.set(fkey(f), { file: data.name, drive: data.url });
+      }
     }
-    toast(files.length > 1 ? `${files.length} file terunggah` : 'File terunggah');
-  } catch (err) { toast('Gagal mengunggah: ' + err.message); inp.value = ''; }
+    if (!inp.dataset.driveGagal) toast(inp.dataset.doc ? 'Tersimpan di Google Drive HC' : files.length > 1 ? `${files.length} file terunggah` : 'File terunggah');
+  } catch (err) { toast('Gagal mengunggah: ' + err.message + '. Coba pilih file lagi.'); inp.value = ''; }
   finally { if (btn) btn.disabled = false; }
 }, true);
+const UPL = new Map(), fkey = f => `${f.name}|${f.size}|${f.lastModified}`;
+fileRef = f => UPL.get(fkey(f)) || { file: f.name };
 /* siapa saja yang boleh membuka berkas ini selain pengunggah & HC: pemilik pengajuan yang sedang dibuka + atasannya */
 function viewersFor() {
   const [p0, p1] = parse().parts, src = { dinas: S.trips, onb: S.onb, training: S.trainings, aset: S.aset, mobil: S.cars }[p0];
@@ -4665,6 +4686,7 @@ function viewersFor() {
 }
 document.addEventListener('click', async e => {
   const el = e.target.closest('.file'); if (!el || !S.loggedIn || e.target.closest('[data-act]')) return;
+  if (el.dataset.drive) { if (isHCGA()) window.open(el.dataset.drive, '_blank', 'noopener'); else toast('Dokumen ini tersimpan di Google Drive HC dan hanya bisa dibuka tim HC'); return; }
   const name = el.dataset.f || el.textContent.trim(), w = window.open('', '_blank');
   let q = sb.from('uploads').select('path').eq('name', name);
   if (el.dataset.o) q = q.eq('owner', el.dataset.o);
