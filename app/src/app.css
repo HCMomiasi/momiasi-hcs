@@ -737,3 +737,5 @@ dl.d dd{margin:0;min-width:0;overflow-wrap:anywhere}
 .file[data-f]{cursor:pointer}
 .file[data-f]:hover{border-color:var(--brand);color:var(--brand)}
 .file.drive{border-style:dashed}
+.adminbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:-4px 0 14px;padding:8px 10px;border:1px dashed var(--line);border-radius:8px;font-size:12.5px}
+.adminbar .muted{margin-right:auto;text-transform:uppercase;letter-spacing:.06em;font-size:11px}

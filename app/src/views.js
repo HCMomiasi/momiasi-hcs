@@ -1,5 +1,6 @@
 /* ===== icons ===== */
 const IC = {
+  edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/>',
   home: '<path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
   bag: '<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 13h18"/>',
   car: '<path d="M3 16v-4l2.2-5.2A1.5 1.5 0 0 1 6.6 6h10.8a1.5 1.5 0 0 1 1.4.8L21 12v4a1 1 0 0 1-1 1h-1M5 17H4a1 1 0 0 1-1-1M3 12h18M9 17h6"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/>',
@@ -899,7 +900,7 @@ function vArmada() {
   const due = s => { const st = dueState(s); if (!s) return '<span class="faint">–</span>'; const n = daysBetween(TODAY, s); return `${fds(s)} ${dt(s).getFullYear()}${st ? `<span class="s" style="color:var(--${st})">${n < 0 ? 'terlewat ' + -n + ' hari' : n + ' hari lagi'}</span>` : ''}`; };
   const vehRows = S.vehicles.map(v => {
     const today = S.cars.filter(c => c.tanggal === TODAY && c.assign?.vehicleId === v.id && ['dijadwalkan', 'berjalan'].includes(c.status));
-    return `<tr><td><b>${esc(v.nama)}</b><span class="s num">${v.plat} · ${v.kursi} kursi</span></td><td class="r num">${v.odo.toLocaleString('id-ID')} km</td><td class="num">${due(v.servis)}</td><td class="num">${due(v.pajak)}</td><td class="num">${due(v.kir)}</td><td>${today.length ? `<span class="pill blue">${today.length} tugas hari ini</span>` : '<span class="pill teal">Tersedia</span>'}</td></tr>`;
+    return `<tr><td><b>${esc(v.nama)}</b><span class="s num">${v.plat} · ${v.kursi} kursi</span></td><td class="r num">${v.odo.toLocaleString('id-ID')} km</td><td class="num">${due(v.servis)}</td><td class="num">${due(v.pajak)}</td><td class="num">${due(v.kir)}</td><td>${today.length ? `<span class="pill blue">${today.length} tugas hari ini</span>` : '<span class="pill teal">Tersedia</span>'}</td>${isHCGA() ? `<td class="r"><div class="btns" style="justify-content:flex-end;flex-wrap:nowrap"><button class="btn sm" data-act="adm-edit" data-k="vehicles" data-id="${v.id}">Edit</button><button class="btn sm danger" data-act="adm-del" data-k="vehicles" data-id="${v.id}">Hapus</button></div></td>` : ''}</tr>`;
   }).join('');
   const drvRows = drivers().map(d => {
     const tasks = S.cars.filter(c => c.assign?.driverId === d.id);
@@ -908,7 +909,7 @@ function vArmada() {
     return `<tr><td><b>${esc(d.nama)}</b></td><td>${today.length ? today.map(c => `${jam(c.mulai)} ${esc(c.tujuan)}`).join('<br>') : '<span class="faint">Tidak ada tugas</span>'}</td><td class="r num">${month.length}</td><td class="r num">${month.reduce((a, c) => a + (c.trip ? c.trip.odoEnd - c.trip.odoStart : 0), 0)} km</td></tr>`;
   }).join('');
   return `<div class="page-head"><div><h1>Armada & driver</h1><p class="muted">Kendaraan operasional, jadwal servis, pajak STNK, dan uji KIR.</p></div><button class="btn" data-act="veh-add">${ic('plus')} Tambah kendaraan</button></div>
-  ${card('Kendaraan', `<div class="tw"><table class="t"><thead><tr><th>Kendaraan</th><th class="r">Odometer</th><th>Servis berikut</th><th>Pajak STNK</th><th>Uji KIR</th><th>Hari ini</th></tr></thead><tbody>${vehRows}</tbody></table></div>`)}
+  ${card('Kendaraan', `<div class="tw"><table class="t"><thead><tr><th>Kendaraan</th><th class="r">Odometer</th><th>Servis berikut</th><th>Pajak STNK</th><th>Uji KIR</th><th>Hari ini</th>${isHCGA() ? '<th></th>' : ''}</tr></thead><tbody>${vehRows}</tbody></table></div>`)}
   ${card('Driver', `<div class="tw"><table class="t"><thead><tr><th>Nama</th><th>Tugas hari ini</th><th class="r">Trip bulan ini</th><th class="r">Jarak bulan ini</th></tr></thead><tbody>${drvRows}</tbody></table></div>`)}`;
 }
 

@@ -95,6 +95,13 @@ async function syncFail(e) {
 function softRender() { if (!$('#modal').classList.contains('open') && !document.activeElement?.closest('form')) rerenderQuiet(); }
 function rerenderQuiet() { const y = window.scrollY; render(); window.scrollTo(0, y); }
 nextNo = p => `${p}/AUTO`;
+hapusData = async (k, id) => {
+  await chain;
+  const { data, error } = await sb.from(TBL[k]).delete().eq('id', id).select('id');
+  if (error) throw error;
+  if (!data?.length) throw new Error('Data tidak bisa dihapus (hanya Admin HC)');
+  S[k] = S[k].filter(x => x.id !== id); delete (SNAP[k] || {})[id];
+};
 async function fn(action, body = {}) {
   const { data, error } = await sb.functions.invoke('admin-user', { body: { action, redirectTo: BASE + '?aktivasi=1', ...body } });
   if (error) { let m = error.message; try { m = (await error.context.json()).error || m; } catch (_) {} throw new Error(m); }

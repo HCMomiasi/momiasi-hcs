@@ -113,6 +113,7 @@ function render() {
   else html = notFound();
   renderShell(p0, TITLES[p0] || '');
   $('#view').innerHTML = html;
+  adminBar(p0, p1);
   document.title = `${TITLES[p0] || 'Beranda'} · Momiasi HCS`;
   const live = $('#view form[data-live]');
   if (live) LIVE[live.dataset.live] && LIVE[live.dataset.live](live);
@@ -308,6 +309,24 @@ const ACT = {
       regApply(u, f);
     }); },
   'reg-reject': d => { const u = user(d.id); modal(`Tolak pendaftaran ${esc(u.nama)}?`, '<p style="margin:0">Data pendaftaran dihapus. Bila memang karyawan, ia bisa mendaftar ulang.</p>', 'Tolak', () => regReject(u), true); },
+  'adm-edit': d => {
+    const o = S[d.k].find(x => x.id === d.id); if (!o) return;
+    const keys = Object.keys(o).filter(k => !ADM_SKIP.test(k) && ['string', 'number', 'boolean'].includes(typeof o[k]));
+    if (!keys.length) return toast('Tidak ada data yang bisa diedit langsung di sini');
+    modal(`Edit ${ADM_NAMA[d.k] || 'data'}${o.no ? ' · ' + esc(o.no) : ''}`, `<div class="fgrid">${keys.map(k => `<div class="f${typeof o[k] === 'string' && o[k].length > 60 ? ' full' : ''}"><label>${admLabel(k)}</label>${admInput(k, o[k])}</div>`).join('')}</div><p class="muted" style="margin:0;font-size:12.5px">Status & persetujuan tetap mengikuti alurnya masing-masing. Perubahan dicatat di riwayat.</p>`, 'Simpan', fd => {
+      const ub = [];
+      keys.forEach(k => { const v = typeof o[k] === 'boolean' ? fd.get(k) === 'on' : typeof o[k] === 'number' ? +fd.get(k) || 0 : (fd.get(k) ?? '').toString().trim(); if (v !== o[k]) { ub.push(`${admLabel(k)}: ${o[k]} → ${v}`); o[k] = v; } });
+      if (!ub.length) return;
+      if (Array.isArray(o.log)) addLog(o, 'Diedit admin', ub.join('; '));
+      rerender(); toast('Perubahan disimpan');
+    });
+  },
+  'adm-del': d => {
+    const o = S[d.k].find(x => x.id === d.id); if (!o) return;
+    modal(`Hapus ${ADM_NAMA[d.k] || 'data'}?`, `<p style="margin:0"><b>${esc(o.no || o.judul || o.nama || o.tujuan || user(o.userId).nama || '')}</b> akan dihapus permanen beserta riwayatnya dan tidak bisa dikembalikan.</p>`, 'Hapus permanen', () => {
+      hapusData(d.k, d.id).then(() => { go(ADM_BACK[d.k] || '#/'); toast('Data dihapus'); }).catch(e => toast(e.message));
+    }, true);
+  },
   'akun-on': d => { user(d.id).akun = 'aktif'; rerender(); toast('Akun diaktifkan kembali'); },
   'invite-view': d => { const u = user(d.id); modal('Email undangan', `<div class="mail"><div class="muted" style="font-size:12px">Kepada: ${esc(u.email)}<br>Subjek: Akun Momiasi HCS (Human Capital System) Anda</div><p>Halo ${esc(u.nama.split(' ')[0])},</p><p>HCGA sudah membuatkan akun untuk Anda di Momiasi HCS (Human Capital System): tempat mengajukan perjalanan dinas, booking mobil & ruang meeting, pembelian aset, dan layanan HC lainnya.</p><p><a class="btn primary sm" href="#/aktivasi?u=${u.id}" data-act="mclose-go" data-href2="#/aktivasi?u=${u.id}">Aktifkan akun</a></p><p class="muted" style="font-size:12px">Link berlaku 7 hari.</p></div>`, 'Kirim ulang', () => { toast(`Undangan dikirim ulang ke ${u.email}`); }); },
   'mclose-go': d => { closeModal(); S.loggedIn = false; save(); go(d.href2); },
@@ -351,6 +370,32 @@ let NOAT = null;
 function confirmNoAtasan(u) { if (NOAT === u.id) return true; NOAT = u.id; toast('Belum memilih atasan: pengajuan dinas & training akan langsung ke HCGA. Klik Setujui lagi bila memang benar.'); return false; }
 function regApply(u, f) { Object.assign(u, f, { role: f.role || 'karyawan', atasan: f.atasan || null, akun: 'aktif' }); notify(u.id, 'Akun Anda disetujui HC. Selamat datang di Momiasi HCS!', '#/'); rerender(); toast(`Akun ${u.nama} aktif`); }
 function regReject(u) { S.users = S.users.filter(x => x !== u); rerender(); toast('Pendaftaran ditolak'); }
+
+/* ===== admin: edit & hapus data di semua modul (hanya HC) ===== */
+const ADM_ROUTE = { dinas: 'trips', mobil: 'cars', ruang: 'roomb', aset: 'aset', training: 'trainings', onb: 'onb', fpk: 'fpk', kandidat: 'cands', l360: 'evals' };
+const ADM_NAMA = { trips: 'perjalanan dinas', cars: 'booking mobil', roomb: 'booking ruang', aset: 'pengajuan aset', trainings: 'training', onb: 'onboarding', fpk: 'FPK', cands: 'kandidat', evals: 'penilaian 360°', vehicles: 'kendaraan', reviews: 'review kontrak' };
+const ADM_BACK = { trips: '#/dinas', cars: '#/mobil', roomb: '#/ruang', aset: '#/aset', trainings: '#/lnd-training', onb: '#/lnd-onb', fpk: '#/ta-fpk', cands: '#/ta-kandidat', evals: '#/lnd-360', vehicles: '#/armada' };
+function adminBar(p0, p1) {
+  const k = ADM_ROUTE[p0];
+  if (!isHCGA() || !k || !p1 || p1 === 'baru' || !S[k].some(x => x.id === p1)) return;
+  const back = $('#view .back') || $('#view .ptool');
+  const bar = `<div class="adminbar"><span class="muted">Admin</span><button class="btn sm" data-act="adm-edit" data-k="${k}" data-id="${p1}">${ic('edit')} Edit data</button><button class="btn sm danger" data-act="adm-del" data-k="${k}" data-id="${p1}">Hapus</button></div>`;
+  if (back) back.insertAdjacentHTML('afterend', bar); else $('#view').insertAdjacentHTML('afterbegin', bar);
+}
+// field yang diatur lewat alurnya sendiri (status, approval, log, lampiran) tidak ikut diedit langsung
+const ADM_SKIP = /^(id|userId|no|status|log|tok|prog|tasks|penilai|invites|offer|settlement|booking|assign|caItems|hotelInfo|konsumsi|beli|pre|post|uif|hr|ecr|self|pfb|perf|reminders|agenda|files|file|lat|lng|fpkId|dept|gcal|trip|declined|terima|caPaidAt|rejectedAt|tes|stage|trainingId|qs|at|by|picTA|tglMulai|.*At)$/;
+const ADM_LABEL = { tujuan: 'Tujuan', keperluan: 'Keperluan', kegiatan: 'Kegiatan', berangkat: 'Tanggal berangkat', pulang: 'Tanggal pulang', ca: 'Cash advance (Rp)', tanggal: 'Tanggal', mulai: 'Jam mulai', selesai: 'Jam selesai', judul: 'Judul', peserta: 'Jumlah peserta', nama: 'Nama', harga: 'Harga (Rp)', qty: 'Jumlah', kategori: 'Kategori', jabatan: 'Jabatan', jumlah: 'Jumlah dibutuhkan', gajiMin: 'Gaji minimum', gajiMax: 'Gaji maksimum', email: 'Email', hp: 'No. WhatsApp', sumber: 'Sumber', vendor: 'Vendor', penyelenggara: 'Penyelenggara', mode: 'Mode', lokasi: 'Lokasi', alamat: 'Alamat', negara: 'Negara', wilayah: 'Wilayah', zona: 'Zona', moda: 'Moda transport', roomId: 'Ruangan', tamu: 'Tamu', link: 'Link', penumpang: 'Penumpang', pakaiDriver: 'Pakai driver', plat: 'Plat nomor', kursi: 'Kursi', odo: 'Odometer (km)', servis: 'Servis berikut', pajak: 'Pajak STNK', kir: 'Uji KIR', level: 'Level', company: 'Company', statusPeg: 'Status kepegawaian', alasan: 'Alasan', tglMinta: 'Tanggal permintaan', join: 'Tanggal bergabung', trainingNama: 'Nama training', cv: 'CV', tglLamar: 'Tanggal melamar', hotel: 'Perlu hotel', caPic: 'PIC cash advance' };
+const admLabel = k => ADM_LABEL[k] || k.replace(/([A-Z])/g, ' $1').replace(/^./, c => c.toUpperCase());
+function admInput(k, v) {
+  const sel = { roomId: S.rooms.map(r => [r.id, r.nama]), wilayah: Object.entries(WIL), zona: Object.entries(ZONA), moda: MODA, level: LEVELS, company: COMPANIES, statusPeg: ['PKWT', 'PKWTT', 'Magang'], kategori: typeof v === 'string' && /^[AB]$/.test(v) ? [['A', 'Kategori A'], ['B', 'Kategori B']] : null, rateB: S.rateB.map(b => [b.id, `${b.kategori} · ${b.kendaraan}`]), caPic: S.users.filter(u => u.akun === 'aktif').map(u => [u.id, u.nama]) }[k];
+  if (sel) return `<select name="${k}">${opts(sel, v)}</select>`;
+  if (typeof v === 'boolean') return `<label class="check"><input type="checkbox" name="${k}" ${v ? 'checked' : ''}> Ya</label>`;
+  if (typeof v === 'number') return `<input type="number" name="${k}" value="${v}">`;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return `<input type="date" name="${k}" value="${v}">`;
+  if (/^\d{2}:\d{2}$/.test(v)) return `<input type="time" name="${k}" value="${v}" step="900">`;
+  return String(v).length > 60 ? `<textarea name="${k}">${esc(v)}</textarea>` : `<input type="text" name="${k}" value="${esc(v)}">`;
+}
+let hapusData = (k, id) => { S[k] = S[k].filter(x => x.id !== id); return Promise.resolve(); };
 
 /* ===== forms ===== */
 const FORMS = {

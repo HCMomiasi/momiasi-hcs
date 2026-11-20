@@ -160,6 +160,16 @@ function vLndTugas() {
 function testCard(title, rec, qsId, action, desc) {
   return `<div class="testc ${rec ? 'done' : ''}"><div class="tt2">${title}</div><div class="muted" style="font-size:12.5px;margin:2px 0 8px">${desc}</div>${rec ? `<div>Nilai: ${skorTxt(rec, qsId)} <span class="faint" style="font-size:12px">· ${fdt(rec.at)}</span></div>` : action}</div>`;
 }
+function otForm(o, k) {
+  modal(k ? 'Edit tugas onboarding' : 'Tambah tugas onboarding', `<div class="f"><label>Nama tugas</label><input type="text" name="judul" value="${esc(k?.judul || '')}" autofocus></div><div class="fgrid"><div class="f"><label>Target (hari ke- sejak bergabung)</label><input type="number" name="hari" min="0" value="${k ? k.hari : 7}"></div><div class="f"><label>Acc oleh</label><select name="verif">${opts([['hc', 'HC'], ['atasan', 'Atasan (mentor)']], k?.verif || 'atasan')}</select></div></div>`, k ? 'Simpan' : 'Tambah', fd => {
+    const judul = fd.get('judul').trim(); if (!judul) { toast('Isi nama tugas'); return false; }
+    const v = { judul, hari: +fd.get('hari') || 0, verif: fd.get('verif') };
+    if (k) Object.assign(k, v); else o.tasks.push({ id: 'k' + uid(), ...v, status: 'belum', note: '', file: '' });
+    (o.log = o.log || []).push({ t: Date.now(), by: me().id, act: k ? 'Mengubah tugas' : 'Menambah tugas', note: judul });
+    if (!k && o.status === 'selesai') o.status = 'berjalan';
+    rerender(); toast(k ? 'Tugas diperbarui' : 'Tugas ditambahkan');
+  });
+}
 function onbTaskList(o, mode) {
   const isOwner = o.userId === me().id;
   return `<div class="tw"><table class="t"><thead><tr><th>Tugas</th><th class="hide-sm">Target</th><th class="hide-sm">Acc oleh</th><th>Status</th><th></th></tr></thead><tbody>${o.tasks.map(k => {
@@ -168,8 +178,10 @@ function onbTaskList(o, mode) {
     if (isOwner && ['proses', 'revisi'].includes(k.status)) act = `<button class="btn sm primary" data-act="ot-submit" data-o="${o.id}" data-k="${k.id}">Ajukan selesai</button>`;
     const canVerif = k.status === 'menunggu' && ((k.verif === 'hc' && isHCGA()) || (k.verif === 'atasan' && (user(o.userId).atasan === me().id || isHCGA())));
     if (canVerif) act = `<button class="btn sm" data-act="ot-revisi" data-o="${o.id}" data-k="${k.id}">Revisi</button><button class="btn sm primary" data-act="ot-acc" data-o="${o.id}" data-k="${k.id}">Acc</button>`;
+    if (isOwner && k.status === 'menunggu') act += `<button class="btn sm" data-act="ot-tarik" data-o="${o.id}" data-k="${k.id}">Tarik pengajuan</button>`;
+    if (isHCGA()) act += `<button class="btn sm ghost" data-act="ot-edit" data-o="${o.id}" data-k="${k.id}" aria-label="Edit tugas" data-tip="Edit tugas">${ic('edit')}</button><button class="btn sm ghost danger" data-act="ot-del" data-o="${o.id}" data-k="${k.id}" aria-label="Hapus tugas" data-tip="Hapus tugas">✕</button>`;
     return `<tr><td><span class="ni">${esc(k.judul)}</span>${k.note ? `<span class="s">${esc(k.note)}</span>` : ''}${k.file || k.files?.length ? `<div class="files" style="margin-top:4px">${fileList(k, o.userId)}</div>` : ''}</td><td class="hide-sm num">${fds(addDays(o.join, k.hari))}</td><td class="hide-sm">${VERIF[k.verif]}</td><td>${otPill(k.status)}</td><td class="r"><div class="btns" style="justify-content:flex-end;flex-wrap:nowrap">${act}</div></td></tr>`;
-  }).join('')}</tbody></table></div>`;
+  }).join('')}</tbody></table></div>${isHCGA() ? `<div class="card-b"><button class="btn sm" data-act="ot-new" data-o="${o.id}">${ic('plus')} Tambah tugas</button></div>` : ''}`;
 }
 function trActions(t, uid) {
   const p = t.prog[uid] || {}, after = afterPhase(t), b = [];
@@ -561,6 +573,10 @@ const LND_ACT = {
       const baru = taskDocs(k).map((dc, i) => { const f = fd.get('doc' + i); return f && f.name ? { doc: dc, ...fileRef(f) } : null; }).filter(Boolean);
       if (baru.length) { k.files = [...(k.files || []).filter(x => !baru.some(y => y.doc === x.doc)), ...baru]; k.file = k.files.map(x => x.file).join(', '); }
       k.status = 'menunggu'; if (k.verif === 'atasan') notify(user(o.userId).atasan, `${user(o.userId).nama} menyelesaikan tugas onboarding: ${k.judul}`, '#/lnd-tugas'); else notifyHCGA(`${user(o.userId).nama} menyelesaikan tugas onboarding: ${k.judul}`, `#/onb/${o.id}`); rerender(); toast('Menunggu acc ' + (k.verif === 'atasan' ? 'atasan' : 'HC')); }); },
+  'ot-tarik': d => { const o = OB(d.o), k = o.tasks.find(x => x.id === d.k); modal('Tarik pengajuan tugas?', `<p style="margin:0">${esc(k.judul)} kembali ke status <b>Dikerjakan</b>. Anda bisa memperbaiki catatan/lampiran lalu mengajukan lagi.</p>`, 'Tarik', () => { k.status = 'proses'; rerender(); toast('Pengajuan ditarik'); }); },
+  'ot-new': d => otForm(OB(d.o), null),
+  'ot-edit': d => { const o = OB(d.o); otForm(o, o.tasks.find(x => x.id === d.k)); },
+  'ot-del': d => { const o = OB(d.o), k = o.tasks.find(x => x.id === d.k); modal('Hapus tugas onboarding?', `<p style="margin:0"><b>${esc(k.judul)}</b> dihapus dari daftar tugas ${esc(user(o.userId).nama)}.${k.files?.length ? ' Dokumen yang sudah tersimpan di Google Drive tidak ikut terhapus.' : ''}</p>`, 'Hapus', () => { o.tasks = o.tasks.filter(x => x !== k); (o.log = o.log || []).push({ t: Date.now(), by: me().id, act: 'Menghapus tugas', note: k.judul }); syncOnb(o); rerender(); toast('Tugas dihapus'); }, true); },
   'ot-acc': d => { const o = OB(d.o), k = o.tasks.find(x => x.id === d.k); k.status = 'selesai'; notify(o.userId, `Tugas "${k.judul}" sudah di-acc`, '#/lnd-tugas'); syncOnb(o); rerender(); toast('Tugas di-acc'); },
   'ot-revisi': d => { const o = OB(d.o), k = o.tasks.find(x => x.id === d.k); modal('Minta revisi', noteField('Yang perlu diperbaiki', true), 'Kirim', fd => { if (!fd.get('note').trim()) return false; k.status = 'revisi'; k.note = fd.get('note').trim(); notify(o.userId, `Tugas "${k.judul}" perlu revisi: ${k.note}`, '#/lnd-tugas'); rerender(); }); },
   'onb-paparan': d => { const o = OB(d.id); o.pemaparanAt = Date.now(); notify(o.userId, 'Sesi pemaparan onboarding selesai. Silakan kerjakan posttest (tahap 2).', '#/lnd-tugas'); rerender(); toast('Posttest dibuka untuk karyawan'); },
