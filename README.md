@@ -25,7 +25,7 @@ supabase/cleanup_before_golive.sql hapus data contoh & akun uji sebelum dipakai 
 ## Sebelum go-live
 1. Supabase > Authentication > URL Configuration: isi **Site URL** dengan URL GitHub Pages dan tambahkan `URL/**` di Redirect URLs.
 2. Jalankan `supabase/cleanup_before_golive.sql`, lalu buat Super Admin asli (petunjuk di file tersebut).
-3. Super Admin menambah karyawan (satu per satu / import CSV) lalu mengirim link aktivasi lewat tombol **Undangan**, atau karyawan **mendaftar sendiri** di halaman login (email @momiasi.id) lalu HC menyetujui di Persetujuan → Pendaftar akun. Domain yang diizinkan bisa diubah lewat settings `daftarDomain`.
+3. Super Admin menambah karyawan (satu per satu / import CSV) lalu mengirim link aktivasi lewat tombol **Undangan**, atau karyawan **mendaftar sendiri** di halaman login (email kantor maupun Gmail) lalu HC menyetujui di Persetujuan → Pendaftar akun. Bila suatu saat ingin membatasi domain email, isi settings `daftarDomain`, mis. `["momiasi.id"]`.
 
 ## Mengubah aplikasi
 Sumber ada di `app/src/*.js|css`. Setelah mengubah, jalankan `cd app && python3 build.py` → menghasilkan `docs/index.html`, lalu commit & push.

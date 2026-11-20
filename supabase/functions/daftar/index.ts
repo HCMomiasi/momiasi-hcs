@@ -1,6 +1,7 @@
 // Momiasi HCS · pendaftaran mandiri karyawan (tanpa login).
 // Akun dibuat dalam keadaan terkunci (akun = 'menunggu', login diblokir) sampai HC menyetujui.
-// Hanya email domain perusahaan (settings 'daftarDomain', default momiasi.id).
+// Email bebas (banyak karyawan memakai Gmail); verifikasi identitas dilakukan HC saat menyetujui.
+// Opsional: settings 'daftarDomain' = ["momiasi.id", ...] untuk membatasi domain.
 import { createClient } from 'npm:@supabase/supabase-js@2.45.4';
 
 const H = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type', 'Content-Type': 'application/json' };
@@ -15,10 +16,10 @@ Deno.serve(async req => {
     const b = await req.json();
     const email = s(b.email).toLowerCase(), nama = s(b.nama), password = String(b.password || '');
     const { data: set } = await admin.from('settings').select('data').eq('key', 'daftarDomain').maybeSingle();
-    const domains: string[] = Array.isArray(set?.data) && set.data.length ? set.data : ['momiasi.id'];
+    const domains: string[] = Array.isArray(set?.data) ? set.data : [];
     if (nama.length < 3) return out({ error: 'Isi nama lengkap' }, 400);
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return out({ error: 'Email tidak valid' }, 400);
-    if (!domains.includes(email.split('@')[1])) return out({ error: `Gunakan email kantor (${domains.map(d => '@' + d).join(' / ')})` }, 400);
+    if (domains.length && !domains.includes(email.split('@')[1])) return out({ error: `Gunakan email kantor (${domains.map(d => '@' + d).join(' / ')})` }, 400);
     if (password.length < 8) return out({ error: 'Password minimal 8 karakter' }, 400);
     const { data: exist } = await admin.from('profiles').select('id').eq('data->>email', email).maybeSingle();
     if (exist) return out({ error: 'Email ini sudah terdaftar. Silakan masuk, atau hubungi HCGA bila lupa password.' }, 409);

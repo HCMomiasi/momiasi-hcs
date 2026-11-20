@@ -377,7 +377,7 @@ const FORMS = {
     const g = k => (fd.get(k) || '').trim(), err = m => { $('#formErr').innerHTML = `<div class="alert">${m}</div>`; };
     const email = g('email').toLowerCase();
     if (g('nama').length < 3 || !g('jabatan')) return err('Isi nama lengkap dan jabatan.');
-    if (!/^[^@\s]+@momiasi\.id$/.test(email)) return err('Gunakan email kantor @momiasi.id.');
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return err('Email tidak valid.');
     if ((fd.get('p1') || '').length < 8) return err('Password minimal 8 karakter.');
     if (fd.get('p1') !== fd.get('p2')) return err('Password tidak sama.');
     if (S.users.some(u => u.email === email)) return err('Email ini sudah terdaftar.');
