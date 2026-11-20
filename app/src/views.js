@@ -86,7 +86,7 @@ function pending() {
 function pendingCount() {
   const p = pending();
   const L = lndPending(), T = taPending();
-  if (isHCGA()) return p.dinas.length + p.pesan.length + p.settle.length + p.mobil.length + p.ruang.length + p.aset.length + L.hc.length + L.piagam.length + T.hc.length;
+  if (isHCGA()) return regPending().length + p.dinas.length + p.pesan.length + p.settle.length + p.mobil.length + p.ruang.length + p.aset.length + L.hc.length + L.piagam.length + T.hc.length;
   return p.atasan.length + L.atasan.length + T.dir.length;
 }
 
@@ -873,11 +873,12 @@ function vPersetujuan(q) {
       <div class="form-foot"><button class="btn">Simpan delegasi</button></div></form>`, '', 'Pengajuan tim diteruskan ke orang yang Anda tunjuk')}`;
   }
   const tab = q.tab || 'dinas';
-  const tabs = [['dinas', 'Dinas', p.dinas.length], ['pesan', 'Tiket & CA', p.pesan.length], ['settle', 'Settlement', p.settle.length], ['mobil', 'Mobil', p.mobil.length], ['ruang', 'Ruang meeting', p.ruang.length], ['aset', 'Aset', p.aset.length], ['fpk', 'FPK', taPending().hc.length], ['training', 'Training', lndPending().hc.length], ['piagam', 'Piagam', lndPending().piagam.length]];
+  const tabs = [['dinas', 'Dinas', p.dinas.length], ['pesan', 'Tiket & CA', p.pesan.length], ['settle', 'Settlement', p.settle.length], ['mobil', 'Mobil', p.mobil.length], ['ruang', 'Ruang meeting', p.ruang.length], ['aset', 'Aset', p.aset.length], ['fpk', 'FPK', taPending().hc.length], ['training', 'Training', lndPending().hc.length], ['piagam', 'Piagam', lndPending().piagam.length], ['akun', 'Pendaftar akun', regPending().length]];
   let body = '';
   if (tab === 'dinas' || tab === 'pesan' || tab === 'settle') body = tripTable(p[tab], true);
   if (tab === 'mobil') body = p.mobil.length ? `<div class="tw"><table class="t"><thead><tr><th>Tanggal & jam</th><th>Pemohon</th><th>Tujuan</th><th></th></tr></thead><tbody>${p.mobil.map(c => `<tr class="click" data-href="#/mobil/${c.id}"><td class="num">${relDay(c.tanggal)}<span class="s">${jam(c.mulai)}–${jam(c.selesai)}</span></td><td>${userCell(c.userId)}</td><td>${esc(c.tujuan)}<span class="s">${c.penumpang} orang</span></td><td class="r"><a class="btn sm" href="#/mobil/${c.id}">Jadwalkan</a></td></tr>`).join('')}</tbody></table></div>` : empty('Tidak ada permintaan mobil.');
   if (tab === 'aset') body = asetTable(p.aset, true);
+  if (tab === 'akun') body = regTable();
   if (tab === 'training') body = trTable(lndPending().hc, true);
   if (tab === 'fpk') body = fpkTable(taPending().hc);
   if (tab === 'piagam') { const pg = lndPending().piagam; body = pg.length ? `<div class="list">${pg.map(({ t, u }) => `<div class="row nw" data-href="#/training/${t.id}" role="link" tabindex="0"><span class="rm"><span class="rt">${esc(user(u).nama)}</span><span class="rs">${esc(t.judul)} · ${fds(t.tanggal)}</span></span><span class="rr"><button class="btn sm" data-act="pg-reject" data-id="${t.id}" data-u="${u}">Tolak</button><button class="btn sm primary" data-act="pg-approve" data-id="${t.id}" data-u="${u}">Acc piagam</button></span></div>`).join('')}</div>` : empty('Tidak ada pengajuan piagam.'); }
@@ -968,9 +969,9 @@ function vPengaturan(q) {
     <div class="form-foot"><button class="btn primary">Simpan perubahan tarif</button></div></form>`;
   }
   if (tab === 'karyawan') {
-    const akunPill = a => a === 'aktif' ? '<span class="pill teal">Aktif</span>' : a === 'undangan' ? '<span class="pill amber">Undangan terkirim</span>' : '<span class="pill gray">Nonaktif</span>';
+    const akunPill = a => a === 'aktif' ? '<span class="pill teal">Aktif</span>' : a === 'undangan' ? '<span class="pill amber">Undangan terkirim</span>' : a === 'menunggu' ? '<span class="pill amber">Menunggu persetujuan</span>' : '<span class="pill gray">Nonaktif</span>';
     const nA = S.users.filter(u => u.akun === 'aktif').length, nU = S.users.filter(u => u.akun === 'undangan').length;
-    body = `<div class="alert info" style="margin-bottom:16px">Akun dibuat oleh Super Admin (satu per satu atau import Excel), sekaligus menentukan perannya. Karyawan menerima email undangan, membuat password sendiri, lalu bisa login. Karyawan resign cukup dinonaktifkan.</div>` + fbar('users', { dept: true, ph: 'Cari nama atau email…' }) + card('Karyawan & akun', `<div class="tw"><table class="t"><thead><tr><th>Nama & email</th><th>Posisi</th><th class="hide-sm">Departemen</th><th>Level</th><th>Atasan (approver)</th><th>Peran</th><th>Akun</th><th></th></tr></thead><tbody>${S.users.map(u => `<tr><td><b>${esc(u.nama)}</b><span class="s">${esc(u.email || '')}</span></td><td><select data-act-change="user-posisi" data-id="${u.id}" style="height:32px;width:auto">${opts(['Head', 'Lead/Koor', 'Staff', 'Driver'], u.posisi)}</select></td><td class="hide-sm">${esc(u.dept)}</td><td><select data-act-change="user-level" data-id="${u.id}" style="height:32px;width:auto">${opts(LEVELS, u.level || 'Staff')}</select></td><td><select data-act-change="user-atasan" data-id="${u.id}" style="height:32px">${opts([['', '— (langsung HCGA)'], ...S.users.filter(x => x.id !== u.id && x.posisi !== 'Driver').map(x => [x.id, x.nama])], u.atasan || '')}</select></td><td><select data-act-change="user-role" data-id="${u.id}" style="height:32px;width:auto">${opts(Object.entries(ROLES), u.role)}</select></td><td>${akunPill(u.akun)}</td><td class="r"><div class="btns" style="justify-content:flex-end;flex-wrap:nowrap">${u.akun === 'undangan' ? `<button class="btn sm" data-act="invite-view" data-id="${u.id}">Lihat undangan</button>` : u.akun === 'aktif' ? (HCGA_IDS.includes(u.id) ? '' : `<button class="btn sm ghost" data-act="akun-off" data-id="${u.id}">Nonaktifkan</button>`) : `<button class="btn sm" data-act="akun-on" data-id="${u.id}">Aktifkan</button>`}</div></td></tr>`).join('')}</tbody></table></div>`, `<div class="btns"><button class="btn sm" data-act="user-import">${ic('dl')} Import Excel</button><button class="btn sm primary" data-act="user-add">${ic('plus')} Tambah</button></div>`, `${nA} aktif · ${nU} menunggu aktivasi`);
+    body = `<div class="alert info" style="margin-bottom:16px">Akun dibuat oleh Super Admin (satu per satu atau import Excel), sekaligus menentukan perannya. Karyawan menerima email undangan, membuat password sendiri, lalu bisa login. Karyawan juga bisa mendaftar sendiri dari halaman login (email @momiasi.id); pendaftar muncul di <a href="#/persetujuan?tab=akun">Persetujuan → Pendaftar akun</a>. Karyawan resign cukup dinonaktifkan.</div>` + fbar('users', { dept: true, ph: 'Cari nama atau email…' }) + card('Karyawan & akun', `<div class="tw"><table class="t"><thead><tr><th>Nama & email</th><th>Posisi</th><th class="hide-sm">Departemen</th><th>Level</th><th>Atasan (approver)</th><th>Peran</th><th>Akun</th><th></th></tr></thead><tbody>${S.users.map(u => `<tr><td><b>${esc(u.nama)}</b><span class="s">${esc(u.email || '')}</span></td><td><select data-act-change="user-posisi" data-id="${u.id}" style="height:32px;width:auto">${opts(['Head', 'Lead/Koor', 'Staff', 'Driver'], u.posisi)}</select></td><td class="hide-sm">${esc(u.dept)}</td><td><select data-act-change="user-level" data-id="${u.id}" style="height:32px;width:auto">${opts(LEVELS, u.level || 'Staff')}</select></td><td><select data-act-change="user-atasan" data-id="${u.id}" style="height:32px">${opts([['', '— (langsung HCGA)'], ...S.users.filter(x => x.id !== u.id && x.posisi !== 'Driver').map(x => [x.id, x.nama])], u.atasan || '')}</select></td><td><select data-act-change="user-role" data-id="${u.id}" style="height:32px;width:auto">${opts(Object.entries(ROLES), u.role)}</select></td><td>${akunPill(u.akun)}</td><td class="r"><div class="btns" style="justify-content:flex-end;flex-wrap:nowrap">${u.akun === 'undangan' ? `<button class="btn sm" data-act="invite-view" data-id="${u.id}">Lihat undangan</button>` : u.akun === 'aktif' ? (HCGA_IDS.includes(u.id) ? '' : `<button class="btn sm ghost" data-act="akun-off" data-id="${u.id}">Nonaktifkan</button>`) : `<button class="btn sm" data-act="akun-on" data-id="${u.id}">Aktifkan</button>`}</div></td></tr>`).join('')}</tbody></table></div>`, `<div class="btns"><button class="btn sm" data-act="user-import">${ic('dl')} Import Excel</button><button class="btn sm primary" data-act="user-add">${ic('plus')} Tambah</button></div>`, `${nA} aktif · ${nU} menunggu aktivasi`);
   }
   if (tab === 'peran') {
     const Y = '<span class="ok">✓</span>', N = '<span class="faint">–</span>', T = '<span class="muted" style="font-size:12px">tim sendiri</span>';
@@ -1005,7 +1006,8 @@ function vLogin(q) {
     <div class="f"><label for="lpass">Password</label><input type="password" id="lpass" name="password" autocomplete="current-password"></div>
     <div id="formErr"></div>
     <button class="btn primary" style="height:42px">Masuk</button>
-    <a class="link" href="#" data-act="forgot" style="text-align:center">Lupa password?</a></div>
+    <a class="link" href="#" data-act="forgot" style="text-align:center">Lupa password?</a>
+    <p class="muted" style="text-align:center;margin:4px 0 0;font-size:13px">Belum punya akun? <a class="link" href="#/daftar">Daftar di sini</a></p></div>
     <div class="demo-box"><div class="muted" style="font-size:12px;margin-bottom:6px">Akun demo prototype (password bebas):</div>${demo}</div>
   </form></div>`;
 }
@@ -1029,6 +1031,35 @@ function vSoon(k) {
   }[k];
   return `<div class="page-head"><div><div class="eyebrow">${GROUPS[k]}</div><h1>${GROUPS[k]}</h1><p class="muted">${info.d}</p></div><span class="pill gray">Segera hadir</span></div>
   ${card('Modul ini sedang disiapkan', `<div class="card-b"><p style="margin:0 0 12px">Submodul ${GROUPS[k]} akan dirancang di tahap berikutnya. Berikut usulan awal untuk didiskusikan:</p><ul class="soon">${info.ide.map(x => `<li>${x}</li>`).join('')}</ul></div>`)}`;
+}
+
+/* ===== pendaftaran mandiri ===== */
+const regPending = () => S.users.filter(u => u.akun === 'menunggu').sort((a, b) => (a.daftarAt || 0) - (b.daftarAt || 0));
+function regTable() {
+  const L = regPending();
+  if (!L.length) return empty('Tidak ada pendaftar yang menunggu.');
+  return `<div class="tw"><table class="t"><thead><tr><th>Nama & email</th><th>Company</th><th>Divisi & jabatan</th><th class="hide-sm">WhatsApp</th><th class="hide-sm">Mendaftar</th><th></th></tr></thead><tbody>${L.map(u => `<tr><td><b>${esc(u.nama)}</b><span class="s">${esc(u.email)}</span></td><td>${esc(u.company || '–')}</td><td>${esc(u.dept || '–')}<span class="s">${esc(u.jabatan || '–')}</span></td><td class="hide-sm num">${esc(u.hp || '–')}</td><td class="hide-sm num">${u.daftarAt ? fdt(u.daftarAt) : '–'}</td><td class="r"><div class="btns" style="justify-content:flex-end;flex-wrap:nowrap"><button class="btn sm danger" data-act="reg-reject" data-id="${u.id}">Tolak</button><button class="btn sm primary" data-act="reg-approve" data-id="${u.id}">Setujui</button></div></td></tr>`).join('')}</tbody></table></div>
+  <div class="card-b muted" style="font-size:12.5px">Pastikan pendaftar memang karyawan Momiasi (cek nama & email kantor). Saat menyetujui, tentukan atasan (approver) dan level supaya alur persetujuan berjalan benar.</div>`;
+}
+function vDaftar() {
+  return `<div class="auth"><form class="authbox" data-form="daftar" novalidate><div class="authtop">${prefControls()}</div>
+    <div class="lw" style="width:150px">${LOGO()}</div>
+    <h1 style="margin-top:22px">Daftar akun</h1><p class="muted" style="margin:4px 0 20px">Untuk karyawan Momiasi yang belum punya akun. Akun aktif setelah disetujui HC.</p>
+    <div class="form"><div class="f"><label>Nama lengkap</label><input type="text" name="nama" autocomplete="name" required></div>
+    <div class="f"><label>Email kantor</label><input type="email" name="email" placeholder="nama@momiasi.id" autocomplete="username" required></div>
+    <div class="f"><label>No. WhatsApp</label><input type="tel" name="hp" placeholder="08xxxxxxxxxx" autocomplete="tel"></div>
+    <div class="fgrid"><div class="f"><label>Company</label><select name="company">${opts(COMPANIES)}</select></div><div class="f"><label>Divisi</label><select name="dept">${opts(DIVISI)}</select></div></div>
+    <div class="f"><label>Jabatan</label><input type="text" name="jabatan" placeholder="mis. Content Writer" required></div>
+    <div class="f"><label>Password</label><input type="password" name="p1" autocomplete="new-password"><span class="hint">Minimal 8 karakter.</span></div>
+    <div class="f"><label>Ulangi password</label><input type="password" name="p2" autocomplete="new-password"></div>
+    <div id="formErr"></div>
+    <button class="btn primary" style="height:42px">Kirim pendaftaran</button>
+    <a class="link" href="#/login" style="text-align:center">Sudah punya akun? Masuk</a></div></form></div>`;
+}
+function vDaftarSent() {
+  return `<div class="auth"><div class="authbox"><div class="lw" style="width:150px">${LOGO()}</div>
+    <h1 style="margin-top:22px">Pendaftaran terkirim</h1><p class="muted" style="margin:6px 0 18px">Tim HC akan memeriksa data Anda. Setelah disetujui, Anda bisa masuk memakai email dan password yang baru dibuat.</p>
+    <a class="btn" href="#/login">Ke halaman masuk</a></div></div>`;
 }
 
 function notFound() { return `<div class="page-head"><h1>Halaman tidak ditemukan</h1></div><a class="btn" href="#/">Kembali ke beranda</a>`; }

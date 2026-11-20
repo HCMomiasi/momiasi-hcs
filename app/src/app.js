@@ -47,11 +47,11 @@ function render() {
   clearInterval(layarTimer);
   closePanels();
   $('#persona').value = S.persona;
-  if (!S.loggedIn && !['login', 'aktivasi', 'layar'].includes(p0)) { if (IS_ARTIFACT) { ROUTE = '#/login'; render(); } else location.replace('#/login'); return; }
-  if (p0 === 'login' || p0 === 'aktivasi') {
+  if (!S.loggedIn && !['login', 'aktivasi', 'layar', 'daftar'].includes(p0)) { if (IS_ARTIFACT) { ROUTE = '#/login'; render(); } else location.replace('#/login'); return; }
+  if (p0 === 'login' || p0 === 'aktivasi' || p0 === 'daftar') {
     document.body.classList.add('bare');
-    $('#bare').innerHTML = p0 === 'login' ? vLogin(q) : vAktivasi(q);
-    document.title = 'Masuk · Momiasi HCS';
+    $('#bare').innerHTML = p0 === 'login' ? vLogin(q) : p0 === 'daftar' ? (p1 === 'terkirim' ? vDaftarSent() : vDaftar()) : vAktivasi(q);
+    document.title = (p0 === 'daftar' ? 'Daftar' : 'Masuk') + ' · Momiasi HCS';
     return;
   }
   if (['sppd', 'layar', 'piagam', 'konfirmasi', 'offer', 'pr'].includes(p0)) {
@@ -295,6 +295,19 @@ const ACT = {
   'login-fill': d => { $('#lemail').value = d.email; $('#lpass').value = 'demo1234'; $('#lpass').focus(); },
   forgot: () => modal('Lupa password', `<p style="margin:0">Masukkan email kantor. Link untuk membuat password baru akan dikirim ke email tersebut.</p><div class="f"><label>Email</label><input type="email" name="email" placeholder="nama@momiasi.id" autofocus></div>`, 'Kirim link', () => toast('Link reset password terkirim (simulasi)')),
   'akun-off': d => { const u = user(d.id); modal(`Nonaktifkan akun ${esc(u.nama)}?`, '<p style="margin:0">Karyawan tidak bisa login lagi. Riwayat pengajuannya tetap tersimpan untuk laporan.</p>', 'Nonaktifkan', () => { u.akun = 'nonaktif'; rerender(); toast('Akun dinonaktifkan'); }, true); },
+  'reg-approve': d => { const u = user(d.id);
+    modal(`Setujui akun ${esc(u.nama)}`, `<p class="muted" style="margin:0">${esc(u.email)} · ${esc(u.hp || 'tanpa no. WA')}</p><div class="fgrid">
+      <div class="f"><label>Company</label><select name="company">${opts(COMPANIES, u.company)}</select></div><div class="f"><label>Divisi</label><select name="dept">${opts(DIVISI, u.dept)}</select></div>
+      <div class="f full"><label>Jabatan</label><input type="text" name="jabatan" value="${esc(u.jabatan || '')}"></div>
+      <div class="f"><label>Level</label><select name="level">${opts(LEVELS, u.level || 'Staff')}</select></div><div class="f"><label>Posisi (tarif)</label><select name="posisi">${opts(['Head', 'Lead/Koor', 'Staff', 'Driver'], u.posisi || 'Staff')}</select></div>
+      <div class="f full"><label>Atasan (approver)</label><select name="atasan"><option value="">Tanpa atasan</option>${opts(S.users.filter(x => x.akun === 'aktif' && x.id !== u.id && x.posisi !== 'Driver').map(x => [x.id, `${x.nama} · ${x.jabatan || x.dept}`]))}</select></div>
+      ${isSuper() ? `<div class="f full"><label>Peran</label><select name="role">${opts(Object.entries(ROLES), 'karyawan')}</select></div>` : ''}</div>`, 'Setujui & aktifkan', fd => {
+      const f = Object.fromEntries(['company', 'dept', 'jabatan', 'level', 'posisi', 'atasan', 'role'].map(k => [k, (fd.get(k) || '').trim()]));
+      if (!f.jabatan) { toast('Isi jabatan'); return false; }
+      if (!f.atasan && !confirmNoAtasan(u)) return false;
+      regApply(u, f);
+    }); },
+  'reg-reject': d => { const u = user(d.id); modal(`Tolak pendaftaran ${esc(u.nama)}?`, '<p style="margin:0">Data pendaftaran dihapus. Bila memang karyawan, ia bisa mendaftar ulang.</p>', 'Tolak', () => regReject(u), true); },
   'akun-on': d => { user(d.id).akun = 'aktif'; rerender(); toast('Akun diaktifkan kembali'); },
   'invite-view': d => { const u = user(d.id); modal('Email undangan', `<div class="mail"><div class="muted" style="font-size:12px">Kepada: ${esc(u.email)}<br>Subjek: Akun Momiasi HCS (Human Capital System) Anda</div><p>Halo ${esc(u.nama.split(' ')[0])},</p><p>HCGA sudah membuatkan akun untuk Anda di Momiasi HCS (Human Capital System): tempat mengajukan perjalanan dinas, booking mobil & ruang meeting, pembelian aset, dan layanan HC lainnya.</p><p><a class="btn primary sm" href="#/aktivasi?u=${u.id}" data-act="mclose-go" data-href2="#/aktivasi?u=${u.id}">Aktifkan akun</a></p><p class="muted" style="font-size:12px">Link berlaku 7 hari.</p></div>`, 'Kirim ulang', () => { toast(`Undangan dikirim ulang ke ${u.email}`); }); },
   'mclose-go': d => { closeModal(); S.loggedIn = false; save(); go(d.href2); },
@@ -334,6 +347,11 @@ const ACT = {
   'geo-pick': d => { if (!$('#alamat').value.trim()) $('#alamat').value = d.name.split(',').slice(0, 3).join(','); $('#geoRes').innerHTML = ''; setPin(+d.lat, +d.lng, true); }
 };
 
+let NOAT = null;
+function confirmNoAtasan(u) { if (NOAT === u.id) return true; NOAT = u.id; toast('Belum memilih atasan: pengajuan dinas & training akan langsung ke HCGA. Klik Setujui lagi bila memang benar.'); return false; }
+function regApply(u, f) { Object.assign(u, f, { role: f.role || 'karyawan', atasan: f.atasan || null, akun: 'aktif' }); notify(u.id, 'Akun Anda disetujui HC. Selamat datang di Momiasi HCS!', '#/'); rerender(); toast(`Akun ${u.nama} aktif`); }
+function regReject(u) { S.users = S.users.filter(x => x !== u); rerender(); toast('Pendaftaran ditolak'); }
+
 /* ===== forms ===== */
 const FORMS = {
   login: fd => {
@@ -354,6 +372,17 @@ const FORMS = {
     u.akun = 'aktif'; save();
     notifyHCGA(`${u.nama} sudah mengaktifkan akun`, '#/pengaturan?tab=karyawan');
     toast('Akun aktif. Silakan masuk.'); go('#/login');
+  },
+  daftar: fd => {
+    const g = k => (fd.get(k) || '').trim(), err = m => { $('#formErr').innerHTML = `<div class="alert">${m}</div>`; };
+    const email = g('email').toLowerCase();
+    if (g('nama').length < 3 || !g('jabatan')) return err('Isi nama lengkap dan jabatan.');
+    if (!/^[^@\s]+@momiasi\.id$/.test(email)) return err('Gunakan email kantor @momiasi.id.');
+    if ((fd.get('p1') || '').length < 8) return err('Password minimal 8 karakter.');
+    if (fd.get('p1') !== fd.get('p2')) return err('Password tidak sama.');
+    if (S.users.some(u => u.email === email)) return err('Email ini sudah terdaftar.');
+    S.users.push({ id: 'u' + uid(), nama: g('nama'), email, hp: g('hp'), company: g('company'), dept: g('dept'), jabatan: g('jabatan'), role: 'karyawan', level: 'Staff', posisi: 'Staff', atasan: null, akun: 'menunggu', daftarAt: Date.now() });
+    notifyHCGA(`${g('nama')} (${g('dept')}) mendaftar akun, menunggu persetujuan`, '#/persetujuan?tab=akun'); save(); go('#/daftar/terkirim');
   },
   modal: fd => { const r = modalCb && modalCb(fd); if (r !== false) closeModal(); },
   dinas: (fd, f) => {

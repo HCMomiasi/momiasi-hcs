@@ -41,3 +41,10 @@ Tanggal uji: 19 November 2026 · lingkungan: Supabase `momiasi-hcs` (data contoh
 - Undangan & reset password lewat link (Edge Function) baru bisa diuji penuh setelah Site URL di Supabase diisi URL GitHub Pages.
 - Unggah berkas ke Storage diuji lewat aturan akses; uji unggah manual disarankan setelah go-live.
 - "Leaked password protection" Supabase Auth belum aktif (pengaturan dashboard).
+
+## Tambahan 20 Nov 2026 · Pendaftaran mandiri karyawan (semua lulus)
+- Daftar dengan email di luar @momiasi.id ditolak · nama terlalu pendek ditolak · password tidak sama ditolak · email yang sudah terdaftar ditolak.
+- Pendaftaran valid → status "menunggu persetujuan", HC mendapat notifikasi, login diblokir sampai disetujui (pesan jelas di halaman masuk).
+- Karyawan biasa tidak melihat pendaftar dan tidak bisa menyetujui lewat API.
+- HC menyetujui sambil menetapkan divisi, jabatan, level, posisi & atasan → akun aktif, bisa login, approver mengikuti atasan yang dipilih. Admin HC tidak bisa memberi peran selain Karyawan (hanya Super Admin).
+- HC menolak → data & akun pendaftar terhapus, email bisa mendaftar ulang.

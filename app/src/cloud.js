@@ -33,6 +33,7 @@ async function loadAll() {
   const mx = (re, src) => Math.max(0, ...[...JSON.stringify(src).matchAll(re)].map(m => +m[1]));
   n.seq = { AST: mx(/AST-\d{4}-(\d{3})/g, n.aset), PGM: mx(/PGM\/\d{4}\/\d{2}\/(\d{3})/g, n.trainings) };
   const meU = n.users.find(u => u.id === SESSION?.user.id);
+  if (!['admin', 'superadmin'].includes(meU?.role)) n.users = n.users.filter(u => u.akun !== 'menunggu');
   Object.assign(n, { loggedIn: !!meU && meU.akun === 'aktif', meId: meU?.id || null, persona: meU ? personaOf(meU, n) : 'karyawan' });
   S = n; SNAP = snap;
   return meU;
@@ -192,7 +193,7 @@ const FORMS_CLOUD = {
     if (!email || !password) return authErr('Isi email dan password.');
     authErr('Memeriksa…');
     const { data, error } = await sb.auth.signInWithPassword({ email, password });
-    if (error) return authErr(/invalid/i.test(error.message) ? 'Email atau password salah.' : /banned/i.test(error.message) ? 'Akun ini sudah dinonaktifkan.' : esc(error.message));
+    if (error) return authErr(/invalid/i.test(error.message) ? 'Email atau password salah.' : /banned/i.test(error.message) ? 'Akun belum disetujui HC atau sudah dinonaktifkan. Hubungi HCGA.' : esc(error.message));
     SESSION = data.session; await enter(true);
   },
   aktivasi: async fd => {
@@ -212,6 +213,27 @@ const FORMS_CLOUD = {
   konfirmasi: (fd, f) => f.dataset.c !== 'c' ? FORMS0.konfirmasi(fd, f) : candRespond(fd.get('r'), (fd.get('alasan') || '').trim()),
   'offer-resp': (fd, f) => f.dataset.c !== 'c' ? FORMS0['offer-resp'](fd, f) : candRespond('terima')
 };
+FORMS_CLOUD.daftar = async (fd, f) => {
+  const g = k => (fd.get(k) || '').trim();
+  if (g('nama').length < 3 || !g('jabatan')) return authErr('Isi nama lengkap dan jabatan.');
+  if ((fd.get('p1') || '').length < 8) return authErr('Password minimal 8 karakter.');
+  if (fd.get('p1') !== fd.get('p2')) return authErr('Password tidak sama.');
+  const btn = f.querySelector('button.primary'); btn.disabled = true; authErr('Mengirim…');
+  const { error } = await sb.functions.invoke('daftar', { body: { nama: g('nama'), email: g('email'), hp: g('hp'), company: g('company'), dept: g('dept'), jabatan: g('jabatan'), password: fd.get('p1') } });
+  btn.disabled = false;
+  if (error) { let m = error.message; try { m = (await error.context.json()).error || m; } catch (_) {} return authErr(esc(m)); }
+  go('#/daftar/terkirim');
+};
+regApply = async (u, f) => {
+  try {
+    const r = await fn('approve', { id: u.id, profile: f });
+    await loadAll(); render(); toast(`Akun ${u.nama} aktif`);
+    const p = r.profile;
+    sendModal(`Kabari ${p.nama}`, [{ ke: p.nama, hp: p.hp || '', email: p.email, subjek: 'Akun Momiasi HCS Anda sudah aktif',
+      text: `Halo ${p.nama.split(' ')[0]},\n\nPendaftaran akun Momiasi HCS Anda sudah disetujui HC. Silakan masuk di ${BASE} memakai email ${p.email} dan password yang Anda buat saat mendaftar.\n\nTim HCGA Momiasi` }]);
+  } catch (e) { toast(e.message); }
+};
+regReject = async u => { try { await fn('reject', { id: u.id }); await loadAll(); render(); toast('Pendaftaran ditolak'); } catch (e) { toast(e.message); } };
 const FORMS0 = { ...FORMS }; Object.assign(FORMS, FORMS_CLOUD);
 const ACT0 = { ...ACT };
 Object.assign(ACT, {

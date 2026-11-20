@@ -1,5 +1,6 @@
 // Momiasi HCS · kelola akun karyawan (butuh service role, jadi di server).
 // Aksi: create (buat akun + profil, kembalikan link aktivasi), link (link aktivasi / reset password baru),
+//       approve / reject (pendaftaran mandiri berstatus 'menunggu'),
 //       ban / unban (nonaktifkan login). Pemanggil wajib HCGA aktif; ubah peran & ban hanya Super Admin.
 import { createClient } from 'npm:@supabase/supabase-js@2.45.4';
 
@@ -38,6 +39,25 @@ Deno.serve(async req => {
       const { data: u } = await admin.from('profiles').select('data').eq('id', id).single();
       if (!u) return out({ error: 'Karyawan tidak ditemukan' }, 404);
       return out({ link: await link(u.data.email) });
+    }
+    if (action === 'approve' || action === 'reject') {
+      const { data: row } = await admin.from('profiles').select('data').eq('id', id).single();
+      if (!row || row.data.akun !== 'menunggu') return out({ error: 'Pendaftaran tidak ditemukan atau sudah diproses' }, 404);
+      if (action === 'reject') { await admin.auth.admin.deleteUser(id); return out({ ok: true }); }
+      const f = profile || {}, pick = (k: string) => (f[k] ?? row.data[k]);
+      if (f.atasan) {
+        const { data: at } = await admin.from('profiles').select('data').eq('id', f.atasan).maybeSingle();
+        if (!at || at.data.akun !== 'aktif') return out({ error: 'Atasan tidak valid' }, 400);
+        // sama seperti pengaturan karyawan: yang ditunjuk sebagai atasan otomatis berperan Atasan
+        if (at.data.role === 'karyawan') await admin.from('profiles').update({ data: { ...at.data, role: 'atasan' } }).eq('id', f.atasan);
+      }
+      const p = { ...row.data, dept: pick('dept'), jabatan: pick('jabatan'), level: pick('level'), posisi: pick('posisi'), company: pick('company'),
+        atasan: f.atasan || null, role: sup && ['karyawan', 'atasan', 'admin', 'superadmin'].includes(f.role) ? f.role : 'karyawan', akun: 'aktif', disetujuiAt: Date.now(), disetujuiOleh: user.id };
+      const up = await admin.from('profiles').update({ data: p }).eq('id', id);
+      if (up.error) return out({ error: up.error.message }, 400);
+      const { error } = await admin.auth.admin.updateUserById(id, { ban_duration: 'none' });
+      if (error) return out({ error: error.message }, 400);
+      return out({ profile: p });
     }
     if (action === 'ban' || action === 'unban') {
       if (!sup) return out({ error: 'Hanya Super Admin' }, 403);

@@ -31,7 +31,7 @@ cj['data.js'] = sub(cj['data.js'], "try { S = JSON.parse(localStorage.getItem(KE
 cj['ta.js'] = sub(cj['ta.js'], 'const fakeLink =', 'let fakeLink =')
 cj['ta.js'] = sub(cj['ta.js'], "const id = 'u' + uid()", "const id = crypto.randomUUID()")
 cj['app.js'] = sub(cj['app.js'], "id: 'u' + uid()", "id: crypto.randomUUID()", 2)
-cj['app.js'] = sub(cj['app.js'], "['login', 'aktivasi', 'layar'].includes(p0)", "['login', 'aktivasi', 'layar', 'konfirmasi', 'offer'].includes(p0)")
+cj['app.js'] = sub(cj['app.js'], "['login', 'aktivasi', 'layar', 'daftar'].includes(p0)", "['login', 'aktivasi', 'layar', 'daftar', 'konfirmasi', 'offer'].includes(p0)")
 cj['app.js'] = sub(cj['app.js'], "toast(`Undangan terkirim ke ${email}`)", "toast(`Akun ${email} dibuat · kirim link aktivasi lewat tombol Undangan`)")
 cj['app.js'] = sub(cj['app.js'], "toast(`${n} karyawan diimport, undangan terkirim`)", "toast(`${n} karyawan diimport · kirim link aktivasi lewat tombol Undangan`)")
 cj['app.js'] = sub(cj['app.js'], "Sistem membuat akun & mengirim email undangan ke semua karyawan sekaligus.", "Sistem membuat akun semua karyawan sekaligus; link aktivasi dikirim per orang lewat WhatsApp / email.")
