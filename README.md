@@ -5,7 +5,7 @@ Talent Acquisition (FPK, kandidat, interview, offering, probation & kontrak) dan
 (onboarding, training, 360°, riwayat).
 
 ## Arsitektur
-- **Frontend**: satu file statis `docs/index.html` (vanilla JS), di-host GitHub Pages.
+- **Frontend**: satu file statis `docs/index.html` (vanilla JS), di-host GitHub Pages di **https://hcs.littlemommies.id** (CNAME di DNS littlemommies.id → hcmomiasi.github.io).
 - **Backend**: Supabase — Postgres + Auth + Storage + 1 Edge Function.
   - Setiap tabel menyimpan objek aplikasi di kolom `data` (jsonb); kolom hak akses (owner, status, divisi…) diturunkan otomatis.
   - **Aturan bisnis ditegakkan di database**: RLS (siapa boleh melihat/mengubah) + trigger `guard` (urutan status & siapa yang
@@ -23,7 +23,7 @@ supabase/cleanup_before_golive.sql hapus data contoh & akun uji sebelum dipakai 
 ```
 
 ## Sebelum go-live
-1. Supabase > Authentication > URL Configuration: isi **Site URL** dengan URL GitHub Pages dan tambahkan `URL/**` di Redirect URLs.
+1. Supabase > Authentication > URL Configuration: isi **Site URL** dengan `https://hcs.littlemommies.id/` dan tambahkan `https://hcs.littlemommies.id/**` di Redirect URLs.
 2. Jalankan `supabase/cleanup_before_golive.sql`, lalu buat Super Admin asli (petunjuk di file tersebut).
 3. Super Admin menambah karyawan (satu per satu / import CSV) lalu mengirim link aktivasi lewat tombol **Undangan**, atau karyawan **mendaftar sendiri** di halaman login (email kantor maupun Gmail) lalu HC menyetujui di Persetujuan → Pendaftar akun. Bila suatu saat ingin membatasi domain email, isi settings `daftarDomain`, mis. `["momiasi.id"]`.
 
